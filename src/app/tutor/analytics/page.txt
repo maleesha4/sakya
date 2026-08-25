@@ -1,0 +1,148 @@
+// ============================================
+// FILE: src/app/tutor/analytics/page.js
+// ============================================
+'use client';
+import { useEffect, useState } from 'react';
+import Navbar from '../../../components/Navbar';
+
+export default function TutorAnalytics() {
+  const [user, setUser] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const userRes = await fetch('/api/auth/me');
+      const userData = await userRes.json();
+      setUser(userData.user);
+
+      const analyticsRes = await fetch('/api/tutor/analytics');
+      const analyticsData = await analyticsRes.json();
+      setAnalytics(analyticsData);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar user={user} />
+        <div className="container mx-auto px-4 py-8">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar user={user} />
+        <div className="container mx-auto px-4 py-8">
+          <p className="text-red-600">Analytics not available</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <Navbar user={user} />
+      
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        <h1 className="text-3xl font-bold mb-6">📊 My Teaching Analytics</h1>
+
+        {/* Summary Stats */}
+        <div className="grid md:grid-cols-4 gap-6 mb-6">
+          <div className="bg-blue-500 text-white p-6 rounded-lg">
+            <h3 className="text-sm font-semibold mb-2">Total Students</h3>
+            <p className="text-4xl font-bold">{analytics.summary.total_students}</p>
+          </div>
+          <div className="bg-green-500 text-white p-6 rounded-lg">
+            <h3 className="text-sm font-semibold mb-2">Marks Entered</h3>
+            <p className="text-4xl font-bold">{analytics.summary.marks_entered}</p>
+          </div>
+          <div className="bg-purple-500 text-white p-6 rounded-lg">
+            <h3 className="text-sm font-semibold mb-2">Papers Uploaded</h3>
+            <p className="text-4xl font-bold">{analytics.summary.papers_uploaded}</p>
+          </div>
+          <div className="bg-orange-500 text-white p-6 rounded-lg">
+            <h3 className="text-sm font-semibold mb-2">Avg Class Performance</h3>
+            <p className="text-4xl font-bold">{analytics.summary.avg_class_performance}%</p>
+          </div>
+        </div>
+
+        {/* Subject Performance */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-2xl font-bold mb-4">My Subjects Performance</h2>
+          <div className="space-y-4">
+            {analytics.subjects.map((subject, idx) => (
+              <div key={idx} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-lg font-bold">{subject.subject_name}</h3>
+                    <p className="text-sm text-gray-600">
+                      {subject.total_students} students | {subject.exam_count} exams
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-blue-600">{subject.avg_percentage}%</p>
+                    <p className="text-sm text-gray-600">Avg Performance</p>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-4 gap-3">
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <p className="text-sm text-gray-600">Pass Rate</p>
+                    <p className="text-xl font-bold text-green-600">{subject.pass_rate}%</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <p className="text-sm text-gray-600">Avg Marks</p>
+                    <p className="text-xl font-bold">{subject.avg_marks}</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <p className="text-sm text-gray-600">Highest</p>
+                    <p className="text-xl font-bold text-purple-600">{subject.highest_marks}</p>
+                  </div>
+                  <div className="text-center p-3 bg-gray-50 rounded">
+                    <p className="text-sm text-gray-600">Papers</p>
+                    <p className="text-xl font-bold text-orange-600">{subject.papers_count}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Students */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-2xl font-bold mb-4">🏆 Top Students in My Subjects</h2>
+          <div className="space-y-2">
+            {analytics.topStudents.map((student, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 border rounded hover:bg-gray-50">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-bold text-gray-400">#{idx + 1}</span>
+                  <div>
+                    <p className="font-semibold">{student.full_name}</p>
+                    <p className="text-sm text-gray-600">{student.index_number}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xl font-bold text-blue-600">{student.avg_percentage}%</p>
+                  <p className="text-sm text-gray-600">{student.exam_count} exams</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
