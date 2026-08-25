@@ -1,0 +1,255 @@
+// ============================================
+// FILE: src/app/tutor/papers/[examId]/page.js
+// ============================================
+'use client';
+import { useEffect, useState } from 'react';
+import Navbar from '@/components/Navbar';
+
+export default function UploadPapers({ params }) {
+  const [user, setUser] = useState(null);
+  const [exam, setExam] = useState(null);
+  const [subjects, setSubjects] = useState([]);
+  const [papers, setPapers] = useState([]);
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [uploadData, setUploadData] = useState({
+    paperTitle: '',
+    paperType: 'question_paper',
+    file: null
+  });
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const userRes = await fetch('/api/auth/me');
+      const userData = await userRes.json();
+      setUser(userData.user);
+
+      const examRes = await fetch(`/api/tutor/papers/${params.examId}`);
+      const examData = await examRes.json();
+      setExam(examData.exam);
+      setSubjects(examData.subjects || []);
+      setPapers(examData.papers || []);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === 'application/pdf') {
+      setUploadData({...uploadData, file});
+    } else {
+      alert('Please select a PDF file');
+      e.target.value = '';
+    }
+  };
+
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!selectedSubject || !uploadData.file) {
+      setMessage('Error: Please select subject and file');
+      return;
+    }
+
+    setUploading(true);
+    setMessage('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadData.file);
+      formData.append('examId', params.examId);
+      formData.append('subjectId', selectedSubject);
+      formData.append('paperTitle', uploadData.paperTitle);
+      formData.append('paperType', uploadData.paperType);
+
+      const res = await fetch('/api/tutor/papers/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setMessage('Paper uploaded successfully!');
+      setUploadData({ paperTitle: '', paperType: 'question_paper', file: null });
+      document.getElementById('fileInput').value = '';
+      fetchData();
+    } catch (error) {
+      setMessage('Error: ' + error.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleToggleVisibility = async (paperId, currentVisibility) => {
+    try {
+      const res = await fetch(`/api/tutor/papers/${paperId}/visibility`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isVisible: !currentVisibility })
+      });
+
+      if (!res.ok) throw new Error('Failed to update visibility');
+      fetchData();
+    } catch (error) {
+      alert('Error: ' + error.message);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <Navbar user={user} />
+        <div className="container mx-auto px-4 py-8">
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <Navbar user={user} />
+      
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <h1 className="text-3xl font-bold mb-2">Upload Papers & Materials</h1>
+        {exam && <p className="text-gray-600 mb-6">{exam.exam_name}</p>}
+
+        {message && (
+          <div className={`px-4 py-3 rounded mb-4 ${
+            message.startsWith('Error')
+              ? 'bg-red-100 border border-red-400 text-red-700'
+              : 'bg-green-100 border border-green-400 text-green-700'
+          }`}>
+            {message}
+          </div>
+        )}
+
+        {/* Upload Form */}
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-bold mb-4">Upload New Paper</h2>
+          <form onSubmit={handleUpload} className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Select Subject *</label>
+                <select
+                  required
+                  className="w-full px-3 py-2 border rounded-lg"
+                  value={selectedSubject || ''}
+                  onChange={(e) => setSelectedSubject(e.target.value)}
+                >
+                  <option value="">Choose subject...</option>
+                  {subjects.map(subject => (
+                    <option key={subject.id} value={subject.subject_id}>
+                      {subject.subject_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Paper Type *</label>
+                <select
+                  required
+                  className="w-full px-3 py-2 border rounded-lg"
+                  value={uploadData.paperType}
+                  onChange={(e) => setUploadData({...uploadData, paperType: e.target.value})}
+                >
+                  <option value="question_paper">Question Paper</option>
+                  <option value="marking_scheme">Marking Scheme</option>
+                  <option value="answer_sheet">Answer Sheet</option>
+                  <option value="model_answer">Model Answer</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Paper Title *</label>
+              <input
+                type="text"
+                required
+                className="w-full px-3 py-2 border rounded-lg"
+                value={uploadData.paperTitle}
+                onChange={(e) => setUploadData({...uploadData, paperTitle: e.target.value})}
+                placeholder="e.g., Mathematics Paper 1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Upload PDF File *</label>
+              <input
+                id="fileInput"
+                type="file"
+                accept=".pdf"
+                required
+                className="w-full px-3 py-2 border rounded-lg"
+                onChange={handleFileChange}
+              />
+              <p className="text-xs text-gray-500 mt-1">Only PDF files are allowed</p>
+            </div>
+            <button
+              type="submit"
+              disabled={uploading}
+              className="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
+            >
+              {uploading ? 'Uploading...' : 'Upload Paper'}
+            </button>
+          </form>
+        </div>
+
+        {/* Uploaded Papers */}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-xl font-bold mb-4">Uploaded Papers</h2>
+          {papers.length === 0 ? (
+            <p className="text-gray-500">No papers uploaded yet</p>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(
+                papers.reduce((acc, paper) => {
+                  if (!acc[paper.subject_name]) acc[paper.subject_name] = [];
+                  acc[paper.subject_name].push(paper);
+                  return acc;
+                }, {})
+              ).map(([subject, subjectPapers]) => (
+                <div key={subject} className="border rounded-lg p-4">
+                  <h3 className="font-bold text-lg mb-3">{subject}</h3>
+                  <div className="space-y-2">
+                    {subjectPapers.map(paper => (
+                      <div key={paper.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                        <div className="flex-1">
+                          <h4 className="font-semibold">{paper.paper_title}</h4>
+                          <p className="text-sm text-gray-600">
+                            Type: {paper.paper_type.replace('_', ' ')} | 
+                            Size: {(paper.file_size / 1024).toFixed(2)} KB | 
+                            Uploaded: {new Date(paper.uploaded_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleToggleVisibility(paper.id, paper.is_visible_to_students)}
+                            className={`px-3 py-1 rounded text-sm font-semibold ${
+                              paper.is_visible_to_students
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {paper.is_visible_to_students ? '👁️ Visible' : '🔒 Hidden'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
